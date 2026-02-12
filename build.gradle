@@ -38,6 +38,8 @@ dependencies {
 	// Redis - Redisson
     implementation 'org.redisson:redisson-spring-boot-starter:3.36.0'
 
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
