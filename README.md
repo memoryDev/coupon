@@ -15,40 +15,49 @@
 
 ## 기술 스택
 
+### Backend
 | 분류 | 기술 |
 |------|------|
 | Language | Java 17 |
 | Framework | Spring Boot 3.5.10 |
 | Database | MySQL 8.0 |
+| Cache | Redis 7.0 |
 | ORM | Spring Data JPA |
-| Infrastructure | Docker |
+| Infrastructure | Docker, Docker Compose |
+
+### Frontend
+| 분류 | 기술 |
+|------|------|
+| Language | JavaScript |
+| Framework | React 18 |
+| HTTP Client | Axios |
 
 <br>
 
 ## 프로젝트 구조
 
 ```
-src/main/java/dev/memory/coupon
-├── domain
-│   ├── coupon
-│   │   ├── v1                  # 기본 구현 (동시성 문제 존재)
+coupon/
+├── src/main/java/dev/memory/coupon
+│   ├── domain
+│   │   ├── coupon
+│   │   │   ├── v1              # 기본 구현 (동시성 문제)
+│   │   │   ├── v2              # synchronized 적용
+│   │   │   ├── v3              # Redis 분산락 적용
+│   │   │   └── v4              # 대기열 시스템
+│   │   ├── queue               # 대기열 관리
 │   │   │   ├── controller
 │   │   │   ├── service
-│   │   │   ├── repository
-│   │   │   └── entity
-│   │   └── v2                  # synchronized 적용
-│   │       ├── controller
-│   │       ├── service
-│   │       ├── repository
-│   │       └── entity
-│   └── user
-│       ├── controller
-│       ├── service
-│       ├── repository
-│       └── entity
-└── global
-    ├── config
-    └── exception
+│   │   │   └── dto
+│   │   └── user
+│   └── global
+│       ├── config
+│       └── exception
+└── frontend/                    # React 프론트엔드
+    ├── src
+    │   ├── App.js
+    │   └── App.css
+    └── package.json
 ```
 
 <br>
@@ -71,19 +80,30 @@ src/main/java/dev/memory/coupon
 - **장점**: 서버 여러 대 환경(스케일 아웃)에서도 동작
 - **실무 적용**: 가장 많이 사용되는 방식
 
+### V4 - 대기열 시스템 구현
+- Redis Sorted Set 기반 대기열 관리
+- 쿠폰 재고 있을 때: 즉시 발급
+- 쿠폰 소진 시: 대기열 진입 후 순차 처리
+- 실시간 대기 순번 조회 (3초마다 갱신)
+- React 프론트엔드로 실제 사용자 경험 구현
+- **적용 시나리오**: 대규모 트래픽 폭증 상황 (타임딜, 티켓팅 등)
+
 <br>
 
 ## 동시성 테스트 결과
 
-| 버전 | 방식 | 100명 동시 요청 결과 |
-|------|------|------|
-| V1 | 없음 | 109개 발급 (초과) |
-| V2 | synchronized | 100개 발급 (정확) |
-| V3 | Redis (Redisson) | 100개 발급 (정확) |
+| 버전 | 방식 | 100명 동시 요청 결과 | 특징 |
+|------|------|------|------|
+| V1 | 없음 | 109개 발급 (초과) | 동시성 문제 발생 |
+| V2 | synchronized | 100개 발급 (정확) | 단일 서버 환경 |
+| V3 | Redis (Redisson) | 100개 발급 (정확) | 다중 서버 환경 |
+| V4 | 대기열 시스템 | 100개 발급 (정확) | 트래픽 제어 + 사용자 경험 개선 |
 
 <br>
 
 ## 실행 방법
+
+### Backend 실행
 
 **1. 레포지토리 클론**
 ```bash
@@ -96,17 +116,55 @@ cd coupon
 docker-compose up -d
 ```
 
-**3. 애플리케이션 실행**
+**3. Spring Boot 애플리케이션 실행**
 ```bash
 ./gradlew bootRun
 ```
 
-**4. API 테스트**
+**4. API 테스트 (Postman)**
 ```
+# V1: 기본 구현
 POST http://localhost:8080/api/v1/coupons/{userId}
+
+# V2: synchronized
 POST http://localhost:8080/api/v2/coupons/{userId}
+
+# V3: Redis 분산락
 POST http://localhost:8080/api/v3/coupons/{userId}
+
+# V4: 대기열 시스템
+POST http://localhost:8080/api/v4/coupons/issue/{userId}      # 쿠폰 발급 요청
+GET  http://localhost:8080/api/v4/queue/status/{userId}      # 대기 순번 조회
+POST http://localhost:8080/api/v4/coupons/issue-from-queue/{userId}  # 대기열에서 발급
 ```
+
+### Frontend 실행 (V4)
+
+**1. 프론트엔드 디렉토리로 이동**
+```bash
+cd frontend
+```
+
+**2. 의존성 설치**
+```bash
+npm install
+```
+
+**3. React 실행**
+```bash
+npm start
+```
+
+**4. 브라우저 접속**
+```
+http://localhost:3000
+```
+
+**사용 방법:**
+- 유저 ID 입력 (1~200)
+- "쿠폰 받기" 버튼 클릭
+- 쿠폰 재고 있으면: 즉시 발급 완료
+- 쿠폰 소진 시: 대기열 진입 → 실시간 순번 확인 → 자동 발급
 
 <br>
 
