@@ -65,19 +65,21 @@ src/main/java/dev/memory/coupon
 - 1000명 동시 요청 시 정확히 100개만 발급
 - **한계점**: 서버가 여러 대일 경우 (스케일 아웃) 동시성 문제 재발
 
-### V3 - Redis 적용 (진행 중)
-- Redis를 활용한 분산 환경에서의 동시성 문제 해결
-- 대기열 시스템 구현 예정
+### V3 - Redis 분산락 적용
+- Redisson을 활용한 분산 환경에서의 동시성 문제 해결
+- 다중 서버 환경에서도 정확히 100개만 발급
+- **장점**: 서버 여러 대 환경(스케일 아웃)에서도 동작
+- **실무 적용**: 가장 많이 사용되는 방식
 
 <br>
 
 ## 동시성 테스트 결과
 
-| 버전 | 방식 | 1000명 동시 요청 결과 |
+| 버전 | 방식 | 100명 동시 요청 결과 |
 |------|------|------|
 | V1 | 없음 | 109개 발급 (초과) |
 | V2 | synchronized | 100개 발급 (정확) |
-| V3 | Redis | 진행 중 |
+| V3 | Redis (Redisson) | 100개 발급 (정확) |
 
 <br>
 
@@ -85,11 +87,11 @@ src/main/java/dev/memory/coupon
 
 **1. 레포지토리 클론**
 ```bash
-git clone https://github.com/본인아이디/coupon.git
+git clone https://github.com/memorydev/coupon.git
 cd coupon
 ```
 
-**2. Docker로 MySQL 실행**
+**2. Docker로 MySQL, Redis 실행**
 ```bash
 docker-compose up -d
 ```
@@ -103,6 +105,7 @@ docker-compose up -d
 ```
 POST http://localhost:8080/api/v1/coupons/{userId}
 POST http://localhost:8080/api/v2/coupons/{userId}
+POST http://localhost:8080/api/v3/coupons/{userId}
 ```
 
 <br>
@@ -114,6 +117,7 @@ POST http://localhost:8080/api/v2/coupons/{userId}
 | V1 - 기본 구현 및 동시성 문제 확인 | 작성 예정 |
 | V2 - synchronized로 동시성 해결 | 작성 예정 |
 | V3 - Redis로 분산 환경 대응 | 작성 예정 |
+| V4 - 대기열 시스템 구현 | 작성 예정 |
 
 <br>
 
